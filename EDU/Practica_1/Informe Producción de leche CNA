@@ -1,0 +1,292 @@
+---
+title: "REPORTE ESTADÍSTICA DESCRIPTIVA UNIVARIADA"
+author: "WILLIAM DAVID IBICA PREGONERO"
+date: "2025-03-15"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE,echo=TRUE}
+
+library(dplyr)
+library(data.table)
+library(readxl)
+library(ggplot2)
+library(DT)
+library(DescTools)
+library(sf)
+library(kableExtra)
+library(knitr)
+
+# carga de datos
+datos_dep <- readRDS(file = "datos_dep.rds")
+t_homologacion <- readRDS( file = "t_homologacion.rds")
+tb_resumen <- readRDS( file = "tb_resumen")
+tb_resum_varia <- readRDS( file = "tb_resum_varia.rds")
+tb_asimetria_curtosis <- readRDS( file = "tb_asimetria_curtosis.rds")
+tdf_S05_TENENCIA <- readRDS( file = "tdf_S05_TENENCIA.rds")
+tdf_lech <- readRDS( file = "tdf_lech.rds")
+map2 <- readRDS(file="map2.rds")
+map <- readRDS(file = "map.rds")
+Gr_P <- readRDS(file = "Gr_p.rds")
+Den_lech <- readRDS(file = "Den_lech.rds")
+Gf_dis_caj <- readRDS(file = "Gf_dis_caj.rds")
+```
+
+# Introducción CNA (Censo Nacional Agropecuario)
+
+El ultimo CNA realizado en Colombia en el año 2023, se formalizo con la intención de recopilar información  y resolver problemas en los sectores agropecuarios, así como, las tenencias de los campesinos o empresas agropecuarias, además, de su organización productora. Esto se llevo a a cabo para mejorar de una manera significativa el desarrollo del sector rural y disminuir la pobreza, por otra parte, garantizar la seguridad alimentaria y su sostenibilidad ambiental.
+
+Sin embargo, cabe destacar que como departamento, el Quindío tiene condiciones climáticas y geográficas favorables, tales como, temperatura media, disponibilidad de agua y pasto, aunque, algunos desafíos con los que deben llevar diariamente,  es que muchos productores son de carácter pequeño lo cual conlleva poca tecnificación y dificultades para competir en mercados más grandes.
+
+Para este análisis se escogieron las siguientes variables;
+
+-   **Variables**
+
+    -   ***Producción de leche***
+
+        *Tipo de variable*: Cuantitativa continua
+
+        *Unidad de medida*: Litros
+
+        *Descripción*: Representa el numero de litros de producción de leche por cada vaca establecida en un periodo de tiempo, en este caso, dicha variable se analiza con respecto al CNA del departamento del Quindio
+
+    -   **Predominancia**
+
+        *Tipo de variable*: Cualitativa nominal
+
+        *Categorías posibles*: Propia, Arriendo, Aparcería, Usufructo, Comodato, Ocupación de hecho, Propiedad colectiva, Adjudicatario o comunero, Otra forma de tenencia, Mixta, No sabe
+
+        *Descripción*: Determina la clase de tenencia con respecto a la tierra que que predomina el empresario o campesino u región del departamento del Quindio. No representa orden jerárquico entre las categorias que la componen.
+    
+Las variables mencionadas anteriormente se pueden visualizar en la siguiente tabla:
+
+```{r,warning=FALSE, message=FALSE,echo=FALSE}
+# Definir los datos
+tabla <- data.frame(
+  Variable = c("P_S7P85B", "S05_TENENCIA"),
+  Código = c("Producción de leche", "Predominancia"),
+  Observaciones = c("Ninguna", "Ninguna")
+)
+
+# Crear la tabla con colores, bordes y centrado
+tabla %>%
+  kable("html", escape = FALSE, align = "c") %>%  # Centrar texto
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed")) %>%
+  row_spec(0, bold = TRUE, background = "#FFFFFF") %>% # Encabezado en blanco
+  row_spec(1, background = "#7FFFD4") %>%  # Fila 1 en verde aguamarina
+  row_spec(2, background = "#FF7F50") %>% # Fila 2 en coral
+  column_spec(1:3, border_left = TRUE, border_right = TRUE) %>%  # Bordes laterales
+  add_header_above(c(" " = 3), bold = FALSE, background = "white", color = "black",extra_css = "border: 2px solid black;") %>% # Encabezado en blanco con bordes
+  kable_styling(latex_options = c("hold_position", "scale_down"), 
+                htmltable_class = "table-bordered")  # Bordes en todas las filas y columnas
+```
+
+![El Quindío](quin.jpg)
+
+  El departamento del Quindío, localizado en la región andina de Colombia, se caracteriza por su reducida extensión territorial y por poseer una de las economías agropecuarias más dinámicas del país. Su relevancia en el contexto del Eje Cafetero radica en la producción y comercialización de café, así como en otras actividades agrícolas complementarias. Administrativamente, el departamento está conformado por 12 municipios, entre los cuales destacan Armenia (su capital), Calarcá, Montenegro, Córdoba y Buenavista, entre otros. 
+   
+  El mapa ubicado en la parte izquierda presenta el departamento del Quindío, destacando los municipios que participaron en la recopilación de información realizada por el Censo Nacional Agropecuario (CNA). Este censo se centró en las actividades económicas de cada municipio, proporcionando datos valiosos sobre la producción agropecuaria y las condiciones rurales de la región. A partir de estos resultados, se pueden identificar áreas con potencial para implementar mejoras en las políticas públicas y estrategias de desarrollo que beneficien a las zonas rurales del Quindío.
+
+# Análisis de datos estadísticos
+
+## Depuración de datos
+
+Para llevar a cabo el análisis de las variables seleccionadas, se partió de una base de datos compuesta por $11.720$ registros, descargados desde la página oficial del DANE. El objetivo del informe es proporcionar información precisa y confiable; sin embargo, la presencia de valores ausentes en algunos de los datos podría afectar la exactitud y la validez de los resultados obtenidos, por ende, el total de datos con los que se trabajo después de realizar dicha depuración, fueron $2.658$ registros.
+
+Por otra parte, es importante considerar que, desde una perspectiva estadística, la omisión o eliminación de datos faltantes debe realizarse únicamente en casos justificados, ya que dichos datos pueden ser relevantes para el análisis. Por ello, es preferible recurrir a técnicas estadísticas más robustas, como la interpolación o extrapolación, que permiten estimar los valores ausentes de manera más precisa. No obstante, en este caso particular, la decisión dependerá del impacto que dichos datos tengan en los resultados obtenidos, lo cual se evaluará a partir del análisis exploratorio.
+
+A continuación realizaremos un análisis a la variable **PREDOMINANCIA**
+
+## Variable *PREDOMINANCIA*
+
+La siguiente tabla muestra la variable cualitativa "Predominancia" y sus respectivas tenencias de tierras 
+
+```{r, warning=FALSE, message=FALSE,echo=FALSE}
+DT::datatable(t_homologacion, rownames = F)
+```
+
+
+Como se menciono anteriormente, la *PREDOMINANCIA* hace referencia a la forma principal de tenencia de la tierra utilizada por las Unidades de Producción Agropecuaria (UPA). Esta variable permite clasificar las UPA según el régimen bajo el cual acceden y utilizan la tierra, incluyendo formas como propiedad, arriendo, usufructo, comodato, entre otras. La información presentada se organiza tanto en una lista de categorías como en una tabla de distribución de frecuencias, que cuantifica la presencia de cada tipo de tenencia dentro del total de registros.
+
+```{r, warning=FALSE, message=FALSE,echo=FALSE}
+DT::datatable(tdf_S05_TENENCIA, rownames = F)
+```
+
+### Análisis de la distribución de Frecuencias
+
+Según la tabla, se puede visualizar que en el departamento del Quindío, la mayoría de las UPA se encuentran bajo la categoría $"No \  sabe"$, con $1669$ registros, lo que representa un $62.79 \%$ del total. Esto puede indicar una alta falta de información o desconocimiento por parte de los encuestados sobre el régimen de tenencia de la tierra que utilizan. La segunda forma de tenencia más reportada es "Propia", con $818$ UPA, representando un $30.78 \%$ del total. Esta categoría refleja a los productores que tienen control legal sobre la tierra que trabajan, lo cual suele estar asociado con mayor estabilidad productiva y mayor trabajo hacia el campesino.
+
+de la tabla también se observa que las demás formas de tenencia tienen una participación significativamente menor, destacándose entre ellas el:
+
+  - Arriendo con $71$ UPAs registradas que corresponde aún $2.68%$ del total de registros    
+  - Mixta con $65$ UPA registradas que corresponde al  $2.45 \%$ de registros
+
+Por otra parte el resto de tenencias que pertecen al $1 \%$ según los datos obtenidos es:
+
+  - Usufructo con $8$ UPA registradas, Comodato con $2$ UPA registradas, Aparcería con $1$ UPA registrada, Ocupación de hecho con $1$ UPA registrada, entre otras.
+
+```{r, echo=FALSE, fig.align="center"}
+Gr_P
+```
+
+El gráfico vislumbra de una mejor manera los datos mencionados en la tabla de frecuencia, además, reafirma la importancia para los sectores agrarios la mejora de mecanismos para la recolección de datos o buscar desarrollar capacitaciones de las personas encuestadas, ya que, las respuestas con carácter ambiguo no  garantizan o limitan el análisis del informe.  
+
+A continuación realizaremos en análisis de la: 
+
+## variable *Producción de leche* (P_S7P85B) 
+
+## TBF de leche
+
+```{r, warning=FALSE, message=FALSE,echo=FALSE}
+DT::datatable(tdf_lech, rownames = F)
+```
+
+De la tabla podemos analizar que la mayor parte de las Unidades de Producción Agropecuaria se concentran en el intervalo de producción entre $0$ y $835.25$ litros, con un registro de $2634$ casos que representa el $99.09 \%$ del total de producción de leche. Por otra parte, el resto de los intervalos contiene frecuencias muy bajas, en su mayoría con uno o ningún caso, por ejemplo, solo $1$ UPA se ubica entre $9187.5$ y $10023$ litros, lo que indica la presencia de valores atípicos con producciones mucho mayores. Esta concentración evidencia una distribución altamente sesgada a la derecha, donde unos pocos productores alcanzan niveles significativamente altos, mientras que la gran mayoría tiene producciones bajas.
+
+Para corroborar mejor la información suministrada por la tabla y dar un mejor punto de vista, se procede a observar el siguiente gráfico de densidad con respecto a la producción de leche
+
+```{r, echo=FALSE, fig.align="center"}
+Den_lech
+```
+
+El gráfico de densidad revela una alta concentración de valores hacia el extremo inferior del eje $x$, es decir, una gran cantidad de UPA producen bajos volúmenes de leche. La distribución presenta una asimetría positiva o sesgo a la derecha, con una cola larga que se extiende hacia valores altos de producción.
+
+Este tipo de distribución es común en variables económicas o productivas donde pocos casos (en este caso, pocas UPA) concentran grandes valores de producción, mientras que la mayoría produce en pequeñas cantidades.
+
+## Medidas de tendencia central
+
+A medida que indagamos mas sobre nuestra variable cuantitativa, es fundamental incorporar las medidas de tendencia central y de dispersión, ya que permiten describir con mayor precisión el comportamiento general de los datos.
+
+En primera instancia, realizaremos un análisis a los resultados de la siguiente tabla donde encontraremos medidas tales como, Cuartiles, Mediana, media
+
+```{r, warning=FALSE, message=FALSE,echo=FALSE}
+DT::datatable(tb_resumen, rownames = F)
+```
+
+De la tabla se pude visualizar que, La media es de $64.37$ litros, lo que representa un valor promedio influenciado por valores extremos. En contraste, la mediana es de $13$ litros, igual al segundo cuartil $Q2$ que sin mencionar si está fuera sido diferente a $Q2$, el análisis de los anteriores datos no tendrían sentido, por otra parte, el $Q2$ nos indica que el $50 \%$ de las Unidades de Producción Agropecuaria (UPA) produce $13$ litros o menos. El primer cuartil $Q1$ es $0$ litros, lo que significa que al menos el $25 \%$ de las UPA no reporta producción de leche. El tercer cuartil $Q3$ indica que el $75 \%$ de las UPA generan alrededor de $50$ litros .
+
+Estos datos revelan una distribución fuertemente asimétrica positiva, donde la mayoría de las UPA tiene niveles muy bajos de producción, mientras que unos pocos casos alcanzan valores muy elevados, como lo demuestra el máximo de $10,023$ litros. La gran diferencia entre la media y la mediana sugiere la presencia de valores atípicos que distorsionan el promedio, por lo que la mediana y los cuartiles ofrecen una representación más precisa del comportamiento típico de la variable.
+
+## Medidas de Variabilidad
+
+Para complementar el análisis estadístico de la variable Producción de leche, es importante examinar las medidas de dispersión, ya que estas permiten evaluar el grado de variabilidad de los datos en torno a su media. A diferencia de las medidas de tendencia central, que describen valores representativos, las medidas de dispersión revelan cuán homogéneos o dispersos son los datos, lo cual es clave para comprender la consistencia en los niveles de UPA 
+
+```{r, warning=FALSE, message=FALSE,echo=FALSE}
+DT::datatable(tb_resum_varia, rownames = F)
+
+```
+
+La tabla muestra las medidas de dispersión para la variable Producción de leche, destacando una elevada varianza de aproximadamente $80,202.69$, lo que indica una gran dispersión de los datos respecto a la media. La desviación estándar es de $283.20$ litros, valor considerablemente superior a la media $64.37$ litros, lo cual refuerza la existencia de una distribución altamente dispersa. Esta idea se confirma con el coeficiente de variación (CV), que alcanza un $439.99 \%$, evidenciando una variabilidad extremadamente alta relativa al promedio, lo que hace que la media sea poco representativa del comportamiento general de los datos.
+
+Además, el rango total de producción es de $10,023$ litros, correspondiente a la diferencia entre el valor mínimo y máximo observado, lo que subraya aún más la presencia de valores atípicos. Por su parte, el recorrido relativo es de $155.72 \%$, y el recorrido semi-intercuartílico tiene un valor de $1$, lo que indica que, aunque hay gran dispersión general, la mitad central de los datos está relativamente más concentrada. En conjunto, estas medidas reflejan una alta heterogeneidad en la producción de leche entre las UPA, donde predominan los valores bajos, pero existen casos extremos que elevan significativamente las medidas globales de dispersión.
+
+```{r, fig.align="center", echo=FALSE}
+Gf_dis_caj
+```
+Podemos analizar en primera instancia que el diagrama de caja es extremadamente compacto en el extremo izquierdo del gráfico, lo que indica que la mayoría de los datos están concentrados en valores muy bajos, esto indica que gran parte de los productores registrados tienen relativamente un bajo porcentaje de producción de leche, además, también se observan datos atípicos , que en palabras mas claras, son los productores que generan una mayor producción de leche.
+
+## Analisis de la Asimetría y Curtosis de la Producción de Leche
+
+Para este análisis, debemos entender que los coeficientes de asimetría y curtosis son clave no solo para medir la dispersión de los datos, sino también para evaluar la forma de su distribución. Gracias a estos indicadores, podemos detectar mediante resultados si la producción de leche sigue un patrón equilibrado o si, por el contrario, presenta tendencias asimétricas o picos inusuales.
+
+```{r}
+DT::datatable(tb_asimetria_curtosis, rownames = F)
+```
+
+La tabla muestra tres coeficientes estadísticos que ayudan a entender la distribución de la producción de leche. por un lado, el coeficiente de asimetría de Yule-Bowley con un $0.48$ indica una leve asimetría positiva, lo que significa que la mayoría de los datos están concentrados en valores bajos, pero hay algunos casos con valores mucho más altos que elevan la distribución hacia la derecha. Esto es consistente con el boxplot, donde se observan varios valores atípicos.
+
+Por otro lado, el coeficiente de curtosis con $639.34$ es extremadamente alto, lo que sugiere que la distribución tiene una forma muy "puntiaguda", con la mayoría de los datos cerca de un valor central, pero con colas largas que indican la presencia de valores extremos, por ultimo, el coeficiente de Fisher con $21.26$ nos reafirma esta alta curtosis, ya que una distribución normal tiene un valor cercano a 3. Estos valores indican que los datos están muy concentrados en un rango estrecho, pero con algunos valores mucho más altos que el resto.
+
+### Mapa producción de leche
+
+El mapa de producción de leche en el departamento del Quindío muestra la distribución de la producción por municipio, segmentada en diferentes rangos de litros.
+
+```{r, echo=FALSE, fig.align="center"}
+library(leaflet)
+map <- readRDS(file = "map.rds")
+map
+```
+
+Producción más baja (0 - 5,000 litros) 
+
+Pijao con una producción de $4.652$ litros, Buenavista con una producción de $1.184$ litros y Córdoba con una producción de $2.438$ litros, tienen la menor producción de leche del departamento. Esto puede deberse a factores como una menor cantidad de tierras dedicadas a la ganadería o una economía enfocada en otros sectores.
+
+Producción baja-moderada $(5,000 - 10,000)\  litros$ 
+
+La Tebaida con una producción de $7.945$ litros y Génova con una producción de $6.957$ litros presentan una producción ligeramente superior, posiblemente combinando ganadería con otros sectores agrícolas.
+
+Producción moderada $(10,000 - 15,000) \ litros$
+
+Armenia con una producción de $10.971$ litros, la capital del Quindío, se encuentra en este rango, lo que indica que aunque tiene producción de leche, su economía podría estar más enfocada en el comercio y servicios.
+
+Producción media-alta $(15,000 - 20,000) \ litros$
+
+Montenegro  con una producción de $19.938$ litros destaca en este nivel, lo cual puede estar asociado con una mayor actividad ganadera en comparación con otros municipios.
+
+Producción alta $(20,000 - 25,000) \ litros$
+
+Calarcá con una producción de $20.591$ litros , Salento con una producción de $22.917$ litros  y Filandia con una producción de $22.021$ litros. Esto sugiere que los municipios tienen una producción significativamente alta de leche.
+
+Producción más alta $(25,000 - 30,000) \ litros$ 
+Circasia con una producción de $25.469$ litros y Quimbaya con una producción de $26.000$ litros, evidencian que son los municipios con la mayor producción de leche del Quindío.
+
+# Indice de GINI
+
+Para dar un mejor entendimiento sobre este indice de GINI, se explicara de una manera sencilla al lector para que sirve y que mide
+
+ - ¿Para que sirve el indice de GINI?
+ es una medida estadística que cuantifica el grado de desigualdad en la distribución de un recurso (como ingresos, riqueza, consumo, etc.) dentro de una población.
+
+ - ¿Qué mide exactamente?
+
+Rango de valores: Va de $0$ a $1$ o $(0% \ a \ 100 \%)$.
+
+   - $0$ o $(0 \%)$: Representa igualdad perfecta (todos tienen exactamente lo mismo).
+
+   - $1$ 0 $(100 \%)$: Indica desigualdad máxima (una persona o grupo concentra todo el recurso y los demás nada).
+
+Interpretación gráfica: Se basa en la Curva de Lorenz, que compara la distribución real con una distribución perfectamente equitativa. Cuanto más se aleje la curva de la línea de igualdad, mayor será el índice de Gini.
+
+Aplicaciones comunes:
+
+  - Economía: Mide desigualdad de ingresos o riqueza en un país.
+  - Sociología: Analiza disparidades en acceso a educación o salud.
+  - Agricultura/Industria: Evalúa distribución de tierras o producción.
+ 
+## Análisis en la desigualdad de la Producción de Leche en el Quindío por municipio
+
+### Mapa indice de concentración de la leche
+
+```{r,echo=FALSE, fig.align="center"}
+library(leaflet)
+map2 <- readRDS(file = "map2.rds")
+map2 
+```
+ 
+Para esta interpretación del mapa, nos basamos en realizar un análisis por categorías los municipios que estuvieran que compartieran cierto grado de similitud en el los resultados de GINI
+
+### Analísis por municipio
+
+Filandia con un indice del $0,684$ y ubicado entre $(0.65 - 0.70)$ y de color morado, es el municipio con la distribución más equitativa de la producción de leche en el departamento.
+
+Salento con un indice del $0.732$, Génova con un indice del $0.73$ y Buenavista con un indice del $0.748$ ubicados entre $(0.70 - 0.75)$ y de color azul oscuro, Estos Presentan una concentración menor, lo que indica una distribución más equitativa de la producción de leche entre los productores.
+
+De color verde oscuro se encuentran los municipios de Montenegro con un indice del 0$0,799$ y Pijao con un indice del $0.7764$ $0.73$  $(0.75 - 0.80)$,estos tienen una concentración intermedia, lo que sugiere que la producción está mejor distribuida en comparación con los municipios anteriores, aunque sigue existiendo cierto nivel de desigualdad.
+
+El siguiente grupo ubicado entre $(0.80 - 0.85 )$ y de color verde son los municipios de Quimbaya con un indice de $0,805$ y Calarca con un indice de $0,811$, ambos municipios Presentan una alta concentración, aunque menor que filandia. Esto indica que aún hay una distribución desigual, pero con más productores involucrados que en en filandia.
+
+Los siguientes municipios ubicados entre $(0,85 - 0,90)$ y que son de color amarillo son los siguientes: Circasia con un indice de $0,865$, Armenia con un indice de $0,896$, la Tebaida con un indice de $0,864$ y Córdoba con un indice de $0,869$. Todos estos municipios tienen una concentración mayor lo que produce la mayor desigualdad encontrada, por ende, sugiere que unas pocas empresas agrícolas dominan la producción de leche.
+
+# Conclusiones
+
+-  La variable cualitativa "Predominancia" revelo que el $62.79 \%$ de las Unidades de Producción Agropecuaria (UPA) en el Quindío reportaron "No sabe" como forma de tenencia de la tierra. Esto indico una falta de claridad legal o desconocimiento por parte de los productores, lo que puede afectar políticas de formalización y acceso a créditos.
+
+- La variable "Producción de leche" nos exteriorizo a partir de varias herramientas estadísticas aplicadas, que hay varios municipios en donde se observa una alta, concentrada y desigual producción de leche, además, de la concentración de la producción en bajos volúmenes, en este caso con solo $1 \%$ de UPA superando los $8,352 \ litros$, esto refleja una ganadería poco tecnificada, predominante en pequeños productores. Esto limita su capacidad para competir en mercados más grandes. 
+
+- Se evidencio que hay desigualdades estructurales en el sector agropecuario del Quindío, con una mayoría de pequeños productores de baja escala y pocos casos de alta producción. Para reducir la pobreza rural y mejorar la competitividad deben de implementar medidas como que  Formalicen la tenencia de tierra, mas tecnificación en diversos municipios y Una mejor optimisación de datos.
